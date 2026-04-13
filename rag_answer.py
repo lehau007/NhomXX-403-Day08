@@ -74,10 +74,30 @@ def retrieve_sparse(query: str, top_k: int = TOP_K_SEARCH) -> List[Dict[str, Any
     """
     Sparse retrieval: tìm kiếm theo keyword (BM25).
     """
-    # Tạm thời trả về rỗng - Cần Retrieval Owner hoàn thiện ở Sprint 3
-    print("[retrieve_sparse] Chưa implement — Sprint 3")
-    return []
+    from rank_bm25 import BM25Okapi
+    import chromadb
 
+    from index import CHROMA_DB_DIR, COLLECTION_NAME
+    client = chromadb.PersistentClient(path=str(CHROMA_DB_DIR))
+    collection = client.get_collection(COLLECTION_NAME)
+
+    all_chunks = collection.get(include=["documents", "metadatas"])
+    corpus = [chunk["text"] for chunk in all_chunks]
+    
+    tokenized_corpus = [doc.lower().split() for doc in corpus]
+    bm25 = BM25Okapi(tokenized_corpus)
+    tokenized_query = query.lower().split()
+    scores = bm25.get_scores(tokenized_query)
+    top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
+
+    return [
+        {
+            "text": all_chunks["documents"][i],
+            "metadata": all_chunks["metadatas"][i],
+            "score": scores[i],
+        }
+        for i in top_indices
+    ]
 
 # =============================================================================
 # RETRIEVAL — HYBRID (Dense + Sparse với Reciprocal Rank Fusion)
