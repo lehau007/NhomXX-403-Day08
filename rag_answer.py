@@ -212,18 +212,39 @@ def call_llm(prompt: str) -> str:
     model_name = os.getenv("LLM_MODEL", "gpt-4o-mini")
 
     if provider == "nvidia":
-        from openai import OpenAI
-        client = OpenAI(
-            base_url=os.getenv("NVIDIA_API_BASE", "https://integrate.api.nvidia.com/v1"),
-            api_key=os.getenv("NVIDIA_API_KEY")
-        )
-        response = client.chat.completions.create(
-            model=model_name,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0,
-            max_tokens=1024,
-        )
-        return response.choices[0].message.content
+        import requests
+
+        api_key = os.getenv("NVIDIA_API_KEY")
+        api_base = os.getenv("NVIDIA_API_BASE", "https://integrate.api.nvidia.com/v1")
+        if not api_key:
+            raise ValueError("NVIDIA_API_KEY chưa được cấu hình trong .env")
+
+        invoke_url = f"{api_base.rstrip('/')}/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }
+        payload = {
+            "model": model_name,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0,
+            "max_tokens": 1024,
+            "top_p": 1.0,
+            "stream": False,
+        }
+
+        response = requests.post(invoke_url, headers=headers, json=payload, timeout=120)
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as e:
+            raise RuntimeError(f"NVIDIA NIM API lỗi {response.status_code}: {response.text}") from e
+
+        data = response.json()
+        choices = data.get("choices", [])
+        if not choices:
+            raise RuntimeError(f"NVIDIA NIM trả response không hợp lệ: {data}")
+        return choices[0]["message"]["content"]
 
     elif provider == "openai":
         from openai import OpenAI
@@ -278,11 +299,8 @@ def rag_answer(
     if verbose:
         print(f"\n[RAG] Query: {query}")
         print(f"[RAG] Retrieved {len(candidates)} candidates (mode={retrieval_mode})")
-<<<<<<< HEAD
-=======
         for i, c in enumerate(candidates[:3]):
             print(f"  [{i + 1}] score={c.get('score', 0):.3f} | {c['metadata'].get('source', '?')}")
->>>>>>> dev/tuna_sprint2
 
     # --- Bước 2: Rerank (optional) ---
     if use_rerank:
