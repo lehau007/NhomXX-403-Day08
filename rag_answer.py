@@ -463,9 +463,11 @@ def compare_retrieval_strategies(query: str) -> None:
 if __name__ == "__main__":
     # Test queries
     test_queries = [
+        "Approval Matrix để cấp quyền hệ thống là tài liệu nào?", 
         "SLA xử lý ticket P1 là bao lâu?",
         "Khách hàng có thể yêu cầu hoàn tiền trong bao nhiêu ngày?",
         "Ai phải phê duyệt để cấp quyền Level 3?",
+        "Approval Matrix để cấp quyền hệ thống là tài liệu nào?", 
     ]
 
     print("\n--- Sprint 2: Test Baseline (Dense) ---")
