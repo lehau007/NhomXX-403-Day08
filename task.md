@@ -8,10 +8,10 @@ Xây dựng trợ lý nội bộ (CS + IT Helpdesk) thực hiện đầy đủ q
 ## 2. Kế hoạch thực hiện (4 Sprints)
 
 ### Sprint 1: Build Index (`index.py`) - [60']
-- [ ] Implement `get_embedding()` (Sử dụng OpenAI hoặc Sentence Transformers).
-- [ ] Hoàn thiện `build_index()`: Thêm logic embed và upsert vào ChromaDB.
-- [ ] Đảm bảo mỗi chunk có ít nhất 3 metadata fields: `source`, `section`, `effective_date`.
-- [ ] Kiểm tra bằng `list_chunks()` để xác nhận dữ liệu đã vào DB đúng cấu trúc.
+- [x] Implement `get_embedding()` (Sử dụng OpenAI hoặc Sentence Transformers).
+- [x] Hoàn thiện `build_index()`: Thêm logic embed và upsert vào ChromaDB.
+- [x] Đảm bảo mỗi chunk có ít nhất 3 metadata fields: `source`, `section`, `effective_date`.
+- [x] Kiểm tra bằng `list_chunks()` để xác nhận dữ liệu đã vào DB đúng cấu trúc.
 
 ### Sprint 2: Baseline Retrieval + Answer (`rag_answer.py`) - [60']
 - [ ] Implement `retrieve_dense()`: Truy vấn ChromaDB bằng vector embedding.
