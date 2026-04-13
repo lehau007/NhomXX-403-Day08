@@ -29,6 +29,21 @@ TOP_K_SELECT = 3  # Số chunk gửi vào prompt sau rerank/select (top-3 sweet 
 
 LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
 
+_cross_encoder = None
+
+
+def _get_cross_encoder():
+    """
+    Lazy-load the CrossEncoder model on first call; return the cached instance
+    on subsequent calls.
+    """
+    global _cross_encoder
+    if _cross_encoder is None:
+        from sentence_transformers import CrossEncoder
+
+        _cross_encoder = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+    return _cross_encoder
+
 
 # =============================================================================
 # RETRIEVAL — DENSE (Vector Search)
@@ -44,23 +59,23 @@ def retrieve_dense(query: str, top_k: int = TOP_K_SEARCH) -> List[Dict[str, Any]
     from index import CHROMA_DB_DIR, COLLECTION_NAME, get_embedding
 
     client = chromadb.PersistentClient(path=str(CHROMA_DB_DIR))
-    collection = client.get_collection(COLLECTION_NAME)
+    collection = client.get_collection(name=COLLECTION_NAME, metadata={"hnsw:space": "cosine"})
 
     query_embedding = get_embedding(query)
     results = collection.query(
-        query_embeddings=[query_embedding],
-        n_results=top_k,
-        include=["documents", "metadatas", "distances"]
+        query_embeddings=[query_embedding], n_results=top_k, include=["documents", "metadatas", "distances"]
     )
 
     chunks = []
     if results["documents"]:
         for i in range(len(results["documents"][0])):
-            chunks.append({
-                "text": results["documents"][0][i],
-                "metadata": results["metadatas"][0][i],
-                "score": 1 - results["distances"][0][i]  # Cosine similarity approximation
-            })
+            chunks.append(
+                {
+                    "text": results["documents"][0][i],
+                    "metadata": results["metadatas"][0][i],
+                    "score": 1 - results["distances"][0][i],  # Cosine similarity approximation
+                }
+            )
     return chunks
 
 
@@ -74,16 +89,18 @@ def retrieve_sparse(query: str, top_k: int = TOP_K_SEARCH) -> List[Dict[str, Any
     """
     Sparse retrieval: tìm kiếm theo keyword (BM25).
     """
-    from rank_bm25 import BM25Okapi
     import chromadb
+    from rank_bm25 import BM25Okapi
 
     from index import CHROMA_DB_DIR, COLLECTION_NAME
+
     client = chromadb.PersistentClient(path=str(CHROMA_DB_DIR))
-    collection = client.get_collection(COLLECTION_NAME)
+    collection = client.get_collection(name=COLLECTION_NAME, metadata={"hnsw:space": "cosine"})
 
     all_chunks = collection.get(include=["documents", "metadatas"])
-    corpus = [chunk["text"] for chunk in all_chunks]
-    
+
+    corpus = [chunk for chunk in all_chunks["documents"]]
+
     tokenized_corpus = [doc.lower().split() for doc in corpus]
     bm25 = BM25Okapi(tokenized_corpus)
     tokenized_query = query.lower().split()
@@ -98,6 +115,7 @@ def retrieve_sparse(query: str, top_k: int = TOP_K_SEARCH) -> List[Dict[str, Any
         }
         for i in top_indices
     ]
+
 
 # =============================================================================
 # RETRIEVAL — HYBRID (Dense + Sparse với Reciprocal Rank Fusion)
@@ -131,10 +149,7 @@ def retrieve_hybrid(
 
     sorted_keys = sorted(rrf_scores, key=lambda k: rrf_scores[k], reverse=True)[:top_k]
 
-    return [
-        {**chunks_map[key], "score": rrf_scores[key]}
-        for key in sorted_keys
-    ]
+    return [{**chunks_map[key], "score": rrf_scores[key]} for key in sorted_keys]
 
 
 # =============================================================================
@@ -150,17 +165,18 @@ def rerank(
     """
     Rerank các chunk bằng Cross-Encoder model.
     """
-    from sentence_transformers import CrossEncoder
-    model = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
-    
+    model = _get_cross_encoder()
+
     sentence_pairs = [[query, chunk["text"]] for chunk in candidates]
     scores = model.predict(sentence_pairs)
-    
+
     for i, score in enumerate(scores):
         candidates[i]["rerank_score"] = float(score)
-        
-    reranked_chunks = sorted(candidates, key=lambda x: x["rerank_score"], reverse=True)
-    return reranked_chunks[:top_k]
+
+    reranked = sorted(candidates, key=lambda x: x["rerank_score"], reverse=True)
+
+    top_k = min(top_k, len(reranked))
+    return reranked[:top_k]
 
 
 # =============================================================================
@@ -212,8 +228,8 @@ def build_context_block(chunks: List[Dict[str, Any]]) -> str:
     for i, chunk in enumerate(chunks):
         source = chunk["metadata"].get("source", "Unknown")
         section = chunk["metadata"].get("section", "General")
-        context_parts.append(f"[{i+1}] (Source: {source}, Section: {section})\n{chunk['text']}")
-    
+        context_parts.append(f"[{i + 1}] (Source: {source}, Section: {section})\n{chunk['text']}")
+
     return "\n\n".join(context_parts)
 
 
@@ -223,17 +239,17 @@ def build_grounded_prompt(query: str, context_block: str) -> str:
     """
     return f"""Bạn là một trợ lý nội bộ chuyên nghiệp. Hãy trả lời câu hỏi dưới đây dựa TRỰC TIẾP trên các tài liệu được cung cấp.
 
-QUY TẮC:
-1. Chỉ sử dụng thông tin từ phần 'BẰNG CHỨNG' dưới đây.
-2. Nếu thông tin không có trong bằng chứng, hãy trả lời: "Tôi không tìm thấy đủ thông tin trong tài liệu để trả lời câu hỏi này."
-3. PHẢI trích dẫn nguồn bằng cách thêm [số thứ tự] vào cuối mỗi câu hoặc đoạn văn có sử dụng thông tin đó. Ví dụ: "Thời gian xử lý ticket P1 là 4 giờ. [1]"
+    QUY TẮC:
+    1. Chỉ sử dụng thông tin từ phần 'BẰNG CHỨNG' dưới đây.
+    2. Nếu thông tin không có trong bằng chứng, hãy trả lời: "Tôi không tìm thấy đủ thông tin trong tài liệu để trả lời câu hỏi này."
+    3. PHẢI trích dẫn nguồn bằng cách thêm [số thứ tự] vào cuối mỗi câu hoặc đoạn văn có sử dụng thông tin đó. Ví dụ: "Thời gian xử lý ticket P1 là 4 giờ. [1]"
 
-BẰNG CHỨNG:
-{context_block}
+    BẰNG CHỨNG:
+    {context_block}
 
-CÂU HỎI: {query}
+    CÂU HỎI: {query}
 
-CÂU TRẢ LỜI:"""
+    CÂU TRẢ LỜI:"""
 
 
 def call_llm(prompt: str) -> str:
@@ -280,6 +296,7 @@ def call_llm(prompt: str) -> str:
 
     elif provider == "openai":
         from openai import OpenAI
+
         client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         response = client.chat.completions.create(
             model=model_name,
@@ -291,6 +308,7 @@ def call_llm(prompt: str) -> str:
 
     elif provider == "gemini":
         import google.generativeai as genai
+
         genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
         model = genai.GenerativeModel("gemini-1.5-flash")
         response = model.generate_content(prompt)
@@ -400,7 +418,7 @@ if __name__ == "__main__":
     for query in test_queries:
         print(f"\nQuery: {query}")
         try:
-            result = rag_answer(query, retrieval_mode="dense", verbose=True)
+            result = rag_answer(query, retrieval_mode="hybrid", verbose=True)
             print(f"Answer: {result['answer']}")
             print(f"Sources: {result['sources']}")
         except Exception as e:
