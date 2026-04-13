@@ -16,7 +16,7 @@ overlap = 80      # tokens
 top_k_search = 10
 top_k_select = 3
 use_rerank = False
-llm_model = "meta/llama-3.1-405b-instruct"  # qua NVIDIA NIM
+llm_model = "google/gemma-4-31b-it"  # qua NVIDIA NIM
 ```
 
 **Scorecard Baseline:**
