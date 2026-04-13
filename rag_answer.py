@@ -29,6 +29,16 @@ TOP_K_SELECT = 3  # Số chunk gửi vào prompt sau rerank/select (top-3 sweet 
 
 LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
 
+SYSTEM_GROUNDED_PROMPT = """Bạn là trợ lý RAG nội bộ.
+Nhiệm vụ: trả lời CHỈ dựa trên bằng chứng được cung cấp trong prompt user.
+
+Nguyên tắc bắt buộc:
+- Không dùng kiến thức ngoài ngữ cảnh cung cấp.
+- Nếu không đủ bằng chứng, trả lời rõ là không đủ thông tin trong tài liệu.
+- Không bịa số liệu, chính sách, tên quy trình.
+- Trả lời ngắn gọn, chính xác, có trích dẫn [1], [2] khi nêu thông tin từ context.
+"""
+
 _cross_encoder = None
 
 
@@ -59,7 +69,7 @@ def retrieve_dense(query: str, top_k: int = TOP_K_SEARCH) -> List[Dict[str, Any]
     from index import CHROMA_DB_DIR, COLLECTION_NAME, get_embedding
 
     client = chromadb.PersistentClient(path=str(CHROMA_DB_DIR))
-    collection = client.get_collection(name=COLLECTION_NAME, metadata={"hnsw:space": "cosine"})
+    collection = client.get_collection(name=COLLECTION_NAME)
 
     query_embedding = get_embedding(query)
     results = collection.query(
@@ -95,11 +105,16 @@ def retrieve_sparse(query: str, top_k: int = TOP_K_SEARCH) -> List[Dict[str, Any
     from index import CHROMA_DB_DIR, COLLECTION_NAME
 
     client = chromadb.PersistentClient(path=str(CHROMA_DB_DIR))
-    collection = client.get_collection(name=COLLECTION_NAME, metadata={"hnsw:space": "cosine"})
+    collection = client.get_collection(name=COLLECTION_NAME)
 
     all_chunks = collection.get(include=["documents", "metadatas"])
 
-    corpus = [chunk for chunk in all_chunks["documents"]]
+    documents = all_chunks.get("documents", [])
+    metadatas = all_chunks.get("metadatas", [])
+    corpus = [str(chunk) for chunk in documents]
+
+    if not corpus:
+        return []
 
     tokenized_corpus = [doc.lower().split() for doc in corpus]
     bm25 = BM25Okapi(tokenized_corpus)
@@ -336,7 +351,7 @@ def call_llm(prompt: str) -> str:
             temperature=0,
             max_tokens=1024,
         )
-        return response.choices[0].message.content
+        return response.choices[0].message.content or ""
 
     elif provider == "groq":
         from openai import OpenAI
@@ -359,7 +374,7 @@ def call_llm(prompt: str) -> str:
             temperature=0,
             max_tokens=1024,
         )
-        return response.choices[0].message.content
+        return response.choices[0].message.content or ""
 
     elif provider == "gemini":
         import google.generativeai as genai
@@ -476,7 +491,7 @@ if __name__ == "__main__":
     for query in test_queries:
         print(f"\nQuery: {query}")
         try:
-            result = rag_answer(query, retrieval_mode="hybrid", verbose=True)
+            result = rag_answer(query, retrieval_mode="dense", verbose=True)
             print(f"Answer: {result['answer']}")
             print(f"Sources: {result['sources']}")
         except Exception as e:
