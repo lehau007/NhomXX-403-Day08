@@ -59,7 +59,7 @@ def retrieve_dense(query: str, top_k: int = TOP_K_SEARCH) -> List[Dict[str, Any]
     from index import CHROMA_DB_DIR, COLLECTION_NAME, get_embedding
 
     client = chromadb.PersistentClient(path=str(CHROMA_DB_DIR))
-    collection = client.get_collection(name=COLLECTION_NAME, metadata={"hnsw:space": "cosine"})
+    collection = client.get_collection(name=COLLECTION_NAME)
 
     query_embedding = get_embedding(query)
     results = collection.query(
@@ -95,7 +95,7 @@ def retrieve_sparse(query: str, top_k: int = TOP_K_SEARCH) -> List[Dict[str, Any
     from index import CHROMA_DB_DIR, COLLECTION_NAME
 
     client = chromadb.PersistentClient(path=str(CHROMA_DB_DIR))
-    collection = client.get_collection(name=COLLECTION_NAME, metadata={"hnsw:space": "cosine"})
+    collection = client.get_collection(name=COLLECTION_NAME)
 
     all_chunks = collection.get(include=["documents", "metadatas"])
 
@@ -109,8 +109,8 @@ def retrieve_sparse(query: str, top_k: int = TOP_K_SEARCH) -> List[Dict[str, Any
 
     return [
         {
-            "text": documents[i],
-            "metadata": metadatas[i] if i < len(metadatas) else {},
+            "text": all_chunks["documents"][i],
+            "metadata": all_chunks["metadatas"][i],
             "score": scores[i],
         }
         for i in top_indices
@@ -261,6 +261,7 @@ def call_llm(prompt: str) -> str:
 
     if provider == "nvidia":
         import time
+
         import requests
 
         api_key = os.getenv("NVIDIA_API_KEY")
@@ -467,11 +468,11 @@ def compare_retrieval_strategies(query: str) -> None:
 if __name__ == "__main__":
     # Test queries
     test_queries = [
-        "Approval Matrix để cấp quyền hệ thống là tài liệu nào?", 
+        "Approval Matrix để cấp quyền hệ thống là tài liệu nào?",
         "SLA xử lý ticket P1 là bao lâu?",
         "Khách hàng có thể yêu cầu hoàn tiền trong bao nhiêu ngày?",
         "Ai phải phê duyệt để cấp quyền Level 3?",
-        "Approval Matrix để cấp quyền hệ thống là tài liệu nào?", 
+        "Approval Matrix để cấp quyền hệ thống là tài liệu nào?",
     ]
 
     print("\n--- Sprint 2: Test Baseline (Dense) ---")
