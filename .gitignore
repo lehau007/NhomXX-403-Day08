@@ -20,3 +20,6 @@ build/
 
 
 data/chroma_db/
+results/
+*.bin
+*.gguf

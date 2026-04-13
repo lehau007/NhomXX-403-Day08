@@ -9,14 +9,14 @@
 
 **Ngày:** ___________  
 **Config:**
-```
+```python
 retrieval_mode = "dense"
 chunk_size = _____ tokens
 overlap = _____ tokens
 top_k_search = 10
 top_k_select = 3
 use_rerank = False
-llm_model = _____
+llm_model = "meta/llama-3.1-405b-instruct" # Hoặc gemma-4-31b-it (NVIDIA NIM)
 ```
 
 **Scorecard Baseline:**
@@ -44,15 +44,15 @@ llm_model = _____
 ## Variant 1 (Sprint 3)
 
 **Ngày:** ___________  
-**Biến thay đổi:** ___________  
+**Biến thay đổi:** Thêm Hybrid Retrieval (BM25) và Reranker (Cross-Encoder)  
 **Lý do chọn biến này:**
-> TODO: Giải thích theo evidence từ baseline results.
-> Ví dụ: "Chọn hybrid vì q07 (alias query) và q09 (mã lỗi ERR-403) đều thất bại với dense.
-> Corpus có cả ngôn ngữ tự nhiên (policy) lẫn tên riêng/mã lỗi (ticket code, SLA label)."
+> Sử dụng Hybrid retrieval (rank-bm25) và sử dụng thuật toán cross-encoder/ms-marco-MiniLM-L-6-v2 giúp tối ưu hoá các truy vấn chứa keywords chuyên ngành (mã lỗi, tên ticket) mà dense embedding thuần túy thường hay bỏ sót.
 
 **Config thay đổi:**
-```
-retrieval_mode = "hybrid"   # hoặc biến khác
+```python
+retrieval_mode = "hybrid"
+top_k_search = 15
+use_rerank = True
 # Các tham số còn lại giữ nguyên như baseline
 ```
 
