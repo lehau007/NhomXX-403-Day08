@@ -1,5 +1,37 @@
 # Kế hoạch Triển khai Lab Day 08 — Nhóm 3 người
 
+## 0. Technical Specification (Quy cách Kỹ thuật)
+
+Để đảm bảo tính nhất quán và tối ưu hóa tài nguyên, nhóm thống nhất cấu hình kỹ thuật sau:
+
+### Tech Stack
+- **Ngôn ngữ**: Python 3.10+
+- **Vector Database**: **ChromaDB** (Local mode) — Lưu trữ và truy vấn vector.
+- **Framework RAG**: Manual Pipeline (Dựa trên template `index.py`, `rag_answer.py`, `eval.py`).
+- **Hybrid Retrieval**: **rank-bm25** (Kết hợp Dense Search và Keyword Search).
+- **Reranker**: **Sentence Transformers (Cross-Encoder)** — Sử dụng model `cross-encoder/ms-marco-MiniLM-L-6-v2`.
+
+### Endpoints & Models
+- **Embedding Model**: 
+    - **Model**: `sentence-transformers/BAAI/bge-m3` (Hỗ trợ tiếng Việt/Anh).
+    - **Host**: Tự host trên **Google Colab** và expose qua **Ngrok/Cloudflare Tunnel**.
+    - **Endpoint**: `http://<colab-tunnel-url>/embed` (Custom API).
+- **LLM (Large Language Model)**:
+    - **Provider**: **NVIDIA NIM (Free Endpoint)**.
+    - **Model**: `meta/llama-3.1-405b-instruct` hoặc `google/gemma-4-31b-it`.
+    - **API Base**: `https://integrate.api.nvidia.com/v1`
+    - **Auth**: Sử dụng API Key từ NVIDIA Build (miễn phí 1000 credits).
+
+### Môi trường (Environment)
+- File `.env` sẽ chứa:
+  ```env
+  NVIDIA_API_KEY=nvapi-xxxxxx
+  EMBEDDING_ENDPOINT=http://xxxx.ngrok-free.app/embed
+  CHROMA_DB_PATH=./data/chroma_db
+  ```
+
+---
+
 ## 1. Phân chia Vai trò (Role Assignment)
 
 | Vai trò | Trách nhiệm chính | Thành viên phụ trách |
