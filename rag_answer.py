@@ -22,7 +22,8 @@ Definition of Done Sprint 3:
 """
 
 import os
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Any, Dict, List
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -31,8 +32,8 @@ load_dotenv()
 # CẤU HÌNH
 # =============================================================================
 
-TOP_K_SEARCH = 10    # Số chunk lấy từ vector store trước rerank (search rộng)
-TOP_K_SELECT = 3     # Số chunk gửi vào prompt sau rerank/select (top-3 sweet spot)
+TOP_K_SEARCH = 10  # Số chunk lấy từ vector store trước rerank (search rộng)
+TOP_K_SELECT = 3  # Số chunk gửi vào prompt sau rerank/select (top-3 sweet spot)
 
 LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
 
@@ -40,6 +41,7 @@ LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
 # =============================================================================
 # RETRIEVAL — DENSE (Vector Search)
 # =============================================================================
+
 
 def retrieve_dense(query: str, top_k: int = TOP_K_SEARCH) -> List[Dict[str, Any]]:
     """
@@ -76,16 +78,37 @@ def retrieve_dense(query: str, top_k: int = TOP_K_SEARCH) -> List[Dict[str, Any]
         # Lưu ý: distances trong ChromaDB cosine = 1 - similarity
         # Score = 1 - distance
     """
-    raise NotImplementedError(
-        "TODO Sprint 2: Implement retrieve_dense().\n"
-        "Tham khảo comment trong hàm để biết cách query ChromaDB."
+    import chromadb
+
+    from index import CHROMA_DB_DIR, COLLECTION_NAME, get_embedding
+
+    client = chromadb.PersistentClient(path=str(CHROMA_DB_DIR))
+    collection = client.get_collection(COLLECTION_NAME)
+
+    query_embedding = get_embedding(query)
+    results = collection.query(
+        query_embeddings=[query_embedding], n_results=top_k, include=["documents", "metadatas", "distances"]
     )
+
+    return [
+        {
+            "text": doc,
+            "metadata": metadata,
+            "score": 1 - distance,
+        }
+        for doc, metadata, distance in zip(
+            results["documents"],
+            results["metadatas"],
+            results["distances"],
+        )
+    ]
 
 
 # =============================================================================
 # RETRIEVAL — SPARSE / BM25 (Keyword Search)
 # Dùng cho Sprint 3 Variant hoặc kết hợp Hybrid
 # =============================================================================
+
 
 def retrieve_sparse(query: str, top_k: int = TOP_K_SEARCH) -> List[Dict[str, Any]]:
     """
@@ -118,6 +141,7 @@ def retrieve_sparse(query: str, top_k: int = TOP_K_SEARCH) -> List[Dict[str, Any
 # =============================================================================
 # RETRIEVAL — HYBRID (Dense + Sparse với Reciprocal Rank Fusion)
 # =============================================================================
+
 
 def retrieve_hybrid(
     query: str,
@@ -159,6 +183,7 @@ def retrieve_hybrid(
 # Cross-encoder để chấm lại relevance sau search rộng
 # =============================================================================
 
+
 def rerank(
     query: str,
     candidates: List[Dict[str, Any]],
@@ -198,6 +223,7 @@ def rerank(
 # QUERY TRANSFORMATION (Sprint 3 alternative)
 # =============================================================================
 
+
 def transform_query(query: str, strategy: str = "expansion") -> List[str]:
     """
     Biến đổi query để tăng recall.
@@ -232,6 +258,7 @@ def transform_query(query: str, strategy: str = "expansion") -> List[str]:
 # =============================================================================
 # GENERATION — GROUNDED ANSWER FUNCTION
 # =============================================================================
+
 
 def build_context_block(chunks: List[Dict[str, Any]]) -> str:
     """
@@ -317,8 +344,7 @@ def call_llm(prompt: str) -> str:
     Lưu ý: Dùng temperature=0 hoặc thấp để output ổn định cho evaluation.
     """
     raise NotImplementedError(
-        "TODO Sprint 2: Implement call_llm().\n"
-        "Chọn Option A (OpenAI) hoặc Option B (Gemini) trong TODO comment."
+        "TODO Sprint 2: Implement call_llm().\nChọn Option A (OpenAI) hoặc Option B (Gemini) trong TODO comment."
     )
 
 
@@ -383,7 +409,7 @@ def rag_answer(
         print(f"\n[RAG] Query: {query}")
         print(f"[RAG] Retrieved {len(candidates)} candidates (mode={retrieval_mode})")
         for i, c in enumerate(candidates[:3]):
-            print(f"  [{i+1}] score={c.get('score', 0):.3f} | {c['metadata'].get('source', '?')}")
+            print(f"  [{i + 1}] score={c.get('score', 0):.3f} | {c['metadata'].get('source', '?')}")
 
     # --- Bước 2: Rerank (optional) ---
     if use_rerank:
@@ -405,10 +431,7 @@ def rag_answer(
     answer = call_llm(prompt)
 
     # --- Bước 5: Extract sources ---
-    sources = list({
-        c["metadata"].get("source", "unknown")
-        for c in candidates
-    })
+    sources = list({c["metadata"].get("source", "unknown") for c in candidates})
 
     return {
         "query": query,
@@ -423,6 +446,7 @@ def rag_answer(
 # SPRINT 3: SO SÁNH BASELINE VS VARIANT
 # =============================================================================
 
+
 def compare_retrieval_strategies(query: str) -> None:
     """
     So sánh các retrieval strategies với cùng một query.
@@ -433,9 +457,9 @@ def compare_retrieval_strategies(query: str) -> None:
 
     A/B Rule (từ slide): Chỉ đổi MỘT biến mỗi lần.
     """
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Query: {query}")
-    print('='*60)
+    print("=" * 60)
 
     strategies = ["dense", "hybrid"]  # Thêm "sparse" sau khi implement
 
