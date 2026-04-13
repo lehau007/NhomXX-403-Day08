@@ -135,19 +135,16 @@ def rerank(
     """
     Rerank các chunk bằng Cross-Encoder model.
     """
-    if not chunks:
-        return []
-        
     from sentence_transformers import CrossEncoder
     model = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
     
-    sentence_pairs = [[query, chunk["text"]] for chunk in chunks]
+    sentence_pairs = [[query, chunk["text"]] for chunk in candidates]
     scores = model.predict(sentence_pairs)
     
     for i, score in enumerate(scores):
-        chunks[i]["rerank_score"] = float(score)
+        candidates[i]["rerank_score"] = float(score)
         
-    reranked_chunks = sorted(chunks, key=lambda x: x["rerank_score"], reverse=True)
+    reranked_chunks = sorted(candidates, key=lambda x: x["rerank_score"], reverse=True)
     return reranked_chunks[:top_k]
 
 
