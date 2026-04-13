@@ -116,10 +116,25 @@ def retrieve_hybrid(
     dense_results = retrieve_dense(query, top_k=top_k)
     sparse_results = retrieve_sparse(query, top_k=top_k)
 
-    # Simple merge logic (placeholder)
-    # Retrieval Owner sẽ implement RRF thực thụ ở Sprint 3
-    all_results = dense_results + sparse_results
-    return all_results[:top_k]
+    rrf_scores: Dict[str, float] = {}
+    chunks_map: Dict[str, Dict[str, Any]] = {}
+
+    for rank, chunk in enumerate(dense_results):
+        key = chunk["metadata"].get("source", "") + chunk["text"][:50]
+        rrf_scores[key] = rrf_scores.get(key, 0) + dense_weight * (1 / (60 + rank))
+        chunks_map[key] = chunk
+
+    for rank, chunk in enumerate(sparse_results):
+        key = chunk["metadata"].get("source", "") + chunk["text"][:50]
+        rrf_scores[key] = rrf_scores.get(key, 0) + sparse_weight * (1 / (60 + rank))
+        chunks_map[key] = chunk
+
+    sorted_keys = sorted(rrf_scores, key=lambda k: rrf_scores[k], reverse=True)[:top_k]
+
+    return [
+        {**chunks_map[key], "score": rrf_scores[key]}
+        for key in sorted_keys
+    ]
 
 
 # =============================================================================
