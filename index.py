@@ -219,11 +219,9 @@ def get_embedding(text: str) -> List[float]:
 
     if provider == "openai":
         from openai import OpenAI
+
         client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        response = client.embeddings.create(
-            input=text,
-            model="text-embedding-3-small"
-        )
+        response = client.embeddings.create(input=text, model="text-embedding-3-small")
         return response.data[0].embedding
 
     elif provider == "local":
@@ -231,8 +229,7 @@ def get_embedding(text: str) -> List[float]:
             from sentence_transformers import SentenceTransformer
         except ImportError as e:
             raise ImportError(
-                "Thiếu package sentence-transformers cho local fallback. "
-                "Cài bằng: pip install sentence-transformers"
+                "Thiếu package sentence-transformers cho local fallback. Cài bằng: pip install sentence-transformers"
             ) from e
 
         model_name = os.getenv("LOCAL_EMBEDDING_MODEL", "paraphrase-multilingual-MiniLM-L12-v2")
