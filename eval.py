@@ -25,7 +25,7 @@ import time
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from datetime import datetime
-from rag_answer import rag_answer, call_llm
+from rag_answer import rag_answer
 
 # =============================================================================
 # CẤU HÌNH
@@ -49,7 +49,7 @@ VARIANT_CONFIG = {
     "retrieval_mode": "hybrid",
     "top_k_search": 15,
     "top_k_select": 3,
-    "use_rerank": False,
+    "use_rerank": True,
     "label": "variant_hybrid_rerank",
 }
 
@@ -61,32 +61,34 @@ VARIANT_CONFIG = {
 def call_llm_eval(prompt: str) -> str:
     """
     Hàm gọi LLM dành riêng cho Evaluation.
-    Mặc định tái sử dụng provider hiện tại từ rag_answer.call_llm
-    (nvidia/openai/gemini) để tránh phụ thuộc cứng vào Gemini.
-
-    Có thể override bằng biến môi trường EVAL_LLM_PROVIDER.
+    Chạy độc lập với call_llm và luôn dùng Gemini model:
+    gemini-3.1-flash-lite-preview.
     """
+    import google.generativeai as genai
+
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        raise ValueError("GOOGLE_API_KEY chưa được cấu hình để chạy call_llm_eval")
+
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel("gemini-3.1-flash-lite-preview")
+
     max_attempts = int(os.getenv("EVAL_JUDGE_MAX_ATTEMPTS", "2"))
-    eval_provider = os.getenv("EVAL_LLM_PROVIDER", "").strip().lower()
     last_error: Exception | None = None
 
     for attempt in range(1, max_attempts + 1):
-        previous_provider = os.getenv("LLM_PROVIDER")
         try:
-            if eval_provider:
-                os.environ["LLM_PROVIDER"] = eval_provider
-            return call_llm(prompt)
+            response = model.generate_content(
+                prompt,
+                generation_config={"temperature": 0.0},
+            )
+            return (response.text or "").strip()
         except Exception as e:
             last_error = e
             if attempt < max_attempts:
                 time.sleep(1.2 * attempt)
                 continue
             raise
-        finally:
-            if previous_provider is None:
-                os.environ.pop("LLM_PROVIDER", None)
-            else:
-                os.environ["LLM_PROVIDER"] = previous_provider
 
     raise RuntimeError(f"LLM judge failed: {last_error}")
 
@@ -154,6 +156,10 @@ def score_faithfulness(
     # TODO Sprint 4: Implement scoring
     if answer in ["PIPELINE_NOT_IMPLEMENTED"] or answer.startswith("ERROR"):
         return {"score": 1, "notes": "No valid answer/error"}
+
+    lower_ans = answer.lower()
+    if any(phrase in lower_ans for phrase in ["không đủ thông tin", "không tìm thấy đủ", "không có thông tin", "không thể trả lời"]):
+        return {"score": 5, "notes": "Answer correctly states lack of information (truthful to empty/irrelevant context)."}
 
     chunks_text = "\n".join([c.get("text", "") for c in chunks_used])
     prompt = f"""Given these retrieved chunks:

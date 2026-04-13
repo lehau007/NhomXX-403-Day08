@@ -116,9 +116,13 @@ def retrieve_sparse(query: str, top_k: int = TOP_K_SEARCH) -> List[Dict[str, Any
     if not corpus:
         return []
 
-    tokenized_corpus = [doc.lower().split() for doc in corpus]
+    import re
+    def tokenize_text(text):
+        return [t for t in re.findall(r"\w+", text.lower()) if len(t) > 1]
+
+    tokenized_corpus = [tokenize_text(doc) for doc in corpus]
     bm25 = BM25Okapi(tokenized_corpus)
-    tokenized_query = query.lower().split()
+    tokenized_query = tokenize_text(query)
     scores = bm25.get_scores(tokenized_query)
     top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
 
