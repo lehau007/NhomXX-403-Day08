@@ -8,7 +8,7 @@ if __name__ == "__main__":
         "Ai phải phê duyệt để cấp quyền Level 3?",
     ]
 
-    print("\n--- Sprint 2: Test Baseline (Dense) ---")
+    print("\n--- Sprint 2: Test Variant ---")
     for query in test_queries:
         print(f"\nQuery: {query}")
         try:
