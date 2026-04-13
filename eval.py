@@ -622,7 +622,7 @@ Generated: {timestamp}
     for r in results:
         md += (f"| {r['id']} | {r['category']} | {r.get('faithfulness', 'N/A')} | "
                f"{r.get('relevance', 'N/A')} | {r.get('context_recall', 'N/A')} | "
-               f"{r.get('completeness', 'N/A')} | {r.get('faithfulness_notes', '')[:50]} |\n")
+               f"{r.get('completeness', 'N/A')} | {r.get('faithfulness_notes', '')[:100]} |\n")
 
     return md
 
