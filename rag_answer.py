@@ -14,7 +14,8 @@ Sprint 3 (60 phút): Tuning tối thiểu
 """
 
 import os
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Any, Dict, List
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -23,8 +24,8 @@ load_dotenv()
 # CẤU HÌNH
 # =============================================================================
 
-TOP_K_SEARCH = 10    # Số chunk lấy từ vector store trước rerank (search rộng)
-TOP_K_SELECT = 3     # Số chunk gửi vào prompt sau rerank/select (top-3 sweet spot)
+TOP_K_SEARCH = 10  # Số chunk lấy từ vector store trước rerank (search rộng)
+TOP_K_SELECT = 3  # Số chunk gửi vào prompt sau rerank/select (top-3 sweet spot)
 
 LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
 
@@ -33,12 +34,14 @@ LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
 # RETRIEVAL — DENSE (Vector Search)
 # =============================================================================
 
+
 def retrieve_dense(query: str, top_k: int = TOP_K_SEARCH) -> List[Dict[str, Any]]:
     """
     Dense retrieval: tìm kiếm theo embedding similarity trong ChromaDB.
     """
     import chromadb
-    from index import get_embedding, CHROMA_DB_DIR, COLLECTION_NAME
+
+    from index import CHROMA_DB_DIR, COLLECTION_NAME, get_embedding
 
     client = chromadb.PersistentClient(path=str(CHROMA_DB_DIR))
     collection = client.get_collection(COLLECTION_NAME)
@@ -66,6 +69,7 @@ def retrieve_dense(query: str, top_k: int = TOP_K_SEARCH) -> List[Dict[str, Any]
 # Dùng cho Sprint 3 Variant hoặc kết hợp Hybrid
 # =============================================================================
 
+
 def retrieve_sparse(query: str, top_k: int = TOP_K_SEARCH) -> List[Dict[str, Any]]:
     """
     Sparse retrieval: tìm kiếm theo keyword (BM25).
@@ -78,6 +82,7 @@ def retrieve_sparse(query: str, top_k: int = TOP_K_SEARCH) -> List[Dict[str, Any
 # =============================================================================
 # RETRIEVAL — HYBRID (Dense + Sparse với Reciprocal Rank Fusion)
 # =============================================================================
+
 
 def retrieve_hybrid(
     query: str,
@@ -101,7 +106,12 @@ def retrieve_hybrid(
 # RERANK (Cross-Encoder)
 # =============================================================================
 
-def rerank(query: str, chunks: List[Dict[str, Any]], top_k: int = TOP_K_SELECT) -> List[Dict[str, Any]]:
+
+def rerank(
+    query: str,
+    candidates: List[Dict[str, Any]],
+    top_k: int = TOP_K_SELECT,
+) -> List[Dict[str, Any]]:
     """
     Rerank các chunk bằng Cross-Encoder model.
     """
@@ -122,8 +132,45 @@ def rerank(query: str, chunks: List[Dict[str, Any]], top_k: int = TOP_K_SELECT) 
 
 
 # =============================================================================
-# GENERATION — PROMPT & LLM CALL
+# QUERY TRANSFORMATION (Sprint 3 alternative)
 # =============================================================================
+
+
+def transform_query(query: str, strategy: str = "expansion") -> List[str]:
+    """
+    Biến đổi query để tăng recall.
+
+    Strategies:
+      - "expansion": Thêm từ đồng nghĩa, alias, tên cũ
+      - "decomposition": Tách query phức tạp thành 2-3 sub-queries
+      - "hyde": Sinh câu trả lời giả (hypothetical document) để embed thay query
+
+    TODO Sprint 3 (nếu chọn query transformation):
+    Gọi LLM với prompt phù hợp với từng strategy.
+
+    Ví dụ expansion prompt:
+        "Given the query: '{query}'
+         Generate 2-3 alternative phrasings or related terms in Vietnamese.
+         Output as JSON array of strings."
+
+    Ví dụ decomposition:
+        "Break down this complex query into 2-3 simpler sub-queries: '{query}'
+         Output as JSON array."
+
+    Khi nào dùng:
+    - Expansion: query dùng alias/tên cũ (ví dụ: "Approval Matrix" → "Access Control SOP")
+    - Decomposition: query hỏi nhiều thứ một lúc
+    - HyDE: query mơ hồ, search theo nghĩa không hiệu quả
+    """
+    # TODO Sprint 3: Implement query transformation
+    # Tạm thời trả về query gốc
+    return [query]
+
+
+# =============================================================================
+# GENERATION — GROUNDED ANSWER FUNCTION
+# =============================================================================
+
 
 def build_context_block(chunks: List[Dict[str, Any]]) -> str:
     """
@@ -231,6 +278,11 @@ def rag_answer(
     if verbose:
         print(f"\n[RAG] Query: {query}")
         print(f"[RAG] Retrieved {len(candidates)} candidates (mode={retrieval_mode})")
+<<<<<<< HEAD
+=======
+        for i, c in enumerate(candidates[:3]):
+            print(f"  [{i + 1}] score={c.get('score', 0):.3f} | {c['metadata'].get('source', '?')}")
+>>>>>>> dev/tuna_sprint2
 
     # --- Bước 2: Rerank (optional) ---
     if use_rerank:
@@ -246,10 +298,7 @@ def rag_answer(
     answer = call_llm(prompt)
 
     # --- Bước 5: Extract sources ---
-    sources = list({
-        c["metadata"].get("source", "unknown")
-        for c in candidates
-    })
+    sources = list({c["metadata"].get("source", "unknown") for c in candidates})
 
     return {
         "query": query,
@@ -264,13 +313,14 @@ def rag_answer(
 # SPRINT 3: SO SÁNH BASELINE VS VARIANT
 # =============================================================================
 
+
 def compare_retrieval_strategies(query: str) -> None:
     """
     So sánh các retrieval strategies.
     """
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Query: {query}")
-    print('='*60)
+    print("=" * 60)
 
     strategies = ["dense", "hybrid"]
 
