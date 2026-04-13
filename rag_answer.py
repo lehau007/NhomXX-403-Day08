@@ -74,10 +74,30 @@ def retrieve_sparse(query: str, top_k: int = TOP_K_SEARCH) -> List[Dict[str, Any
     """
     Sparse retrieval: tìm kiếm theo keyword (BM25).
     """
-    # Tạm thời trả về rỗng - Cần Retrieval Owner hoàn thiện ở Sprint 3
-    print("[retrieve_sparse] Chưa implement — Sprint 3")
-    return []
+    from rank_bm25 import BM25Okapi
+    import chromadb
 
+    from index import CHROMA_DB_DIR, COLLECTION_NAME
+    client = chromadb.PersistentClient(path=str(CHROMA_DB_DIR))
+    collection = client.get_collection(COLLECTION_NAME)
+
+    all_chunks = collection.get(include=["documents", "metadatas"])
+    corpus = [chunk["text"] for chunk in all_chunks]
+    
+    tokenized_corpus = [doc.lower().split() for doc in corpus]
+    bm25 = BM25Okapi(tokenized_corpus)
+    tokenized_query = query.lower().split()
+    scores = bm25.get_scores(tokenized_query)
+    top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
+
+    return [
+        {
+            "text": all_chunks["documents"][i],
+            "metadata": all_chunks["metadatas"][i],
+            "score": scores[i],
+        }
+        for i in top_indices
+    ]
 
 # =============================================================================
 # RETRIEVAL — HYBRID (Dense + Sparse với Reciprocal Rank Fusion)
@@ -96,10 +116,25 @@ def retrieve_hybrid(
     dense_results = retrieve_dense(query, top_k=top_k)
     sparse_results = retrieve_sparse(query, top_k=top_k)
 
-    # Simple merge logic (placeholder)
-    # Retrieval Owner sẽ implement RRF thực thụ ở Sprint 3
-    all_results = dense_results + sparse_results
-    return all_results[:top_k]
+    rrf_scores: Dict[str, float] = {}
+    chunks_map: Dict[str, Dict[str, Any]] = {}
+
+    for rank, chunk in enumerate(dense_results):
+        key = chunk["metadata"].get("source", "") + chunk["text"][:50]
+        rrf_scores[key] = rrf_scores.get(key, 0) + dense_weight * (1 / (60 + rank))
+        chunks_map[key] = chunk
+
+    for rank, chunk in enumerate(sparse_results):
+        key = chunk["metadata"].get("source", "") + chunk["text"][:50]
+        rrf_scores[key] = rrf_scores.get(key, 0) + sparse_weight * (1 / (60 + rank))
+        chunks_map[key] = chunk
+
+    sorted_keys = sorted(rrf_scores, key=lambda k: rrf_scores[k], reverse=True)[:top_k]
+
+    return [
+        {**chunks_map[key], "score": rrf_scores[key]}
+        for key in sorted_keys
+    ]
 
 
 # =============================================================================
@@ -115,19 +150,16 @@ def rerank(
     """
     Rerank các chunk bằng Cross-Encoder model.
     """
-    if not chunks:
-        return []
-        
     from sentence_transformers import CrossEncoder
     model = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
     
-    sentence_pairs = [[query, chunk["text"]] for chunk in chunks]
+    sentence_pairs = [[query, chunk["text"]] for chunk in candidates]
     scores = model.predict(sentence_pairs)
     
     for i, score in enumerate(scores):
-        chunks[i]["rerank_score"] = float(score)
+        candidates[i]["rerank_score"] = float(score)
         
-    reranked_chunks = sorted(chunks, key=lambda x: x["rerank_score"], reverse=True)
+    reranked_chunks = sorted(candidates, key=lambda x: x["rerank_score"], reverse=True)
     return reranked_chunks[:top_k]
 
 
