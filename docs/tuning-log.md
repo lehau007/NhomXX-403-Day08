@@ -53,17 +53,18 @@ llm_model = "meta/llama-3.1-405b-instruct"  # qua NVIDIA NIM
 ```python
 retrieval_mode = "hybrid"
 top_k_search = 15
-use_rerank = True  # cross-encoder/ms-marco-MiniLM-L-6-v2
+use_rerank = False  # ⚠️ Bug: config thực chạy là False dù label ghi 'variant_hybrid_rerank'
+                   # Cross-encoder đã được cài nhưng chưa được bật đúng cách trong lần eval này
 # Các tham số còn lại giữ nguyên như baseline
 ```
 
 **Scorecard Variant 1:**
 | Metric | Baseline | Variant 1 | Delta |
 |--------|----------|-----------|-------|
-| Faithfulness | 4.80/5 | 4.90/5 | +0.10 |
-| Answer Relevance | 3.80/5 | 3.60/5 | -0.20 |
-| Context Recall | 5.00/5 | 5.00/5 | +0.00 |
-| Completeness | 3.50/5 | 3.30/5 | -0.20 |
+| Faithfulness | 4.80/5 | 4.90/5 | **+0.10** |
+| Answer Relevance | 3.80/5 | 3.60/5 | **-0.20** |
+| Context Recall | 5.00/5 | 5.00/5 | 0.00 |
+| Completeness | 3.50/5 | 3.30/5 | **-0.20** |
 
 **Nhận xét theo từng câu:**
 | Câu | Baseline F/R/Rc/C | Variant F/R/Rc/C | Better? |
@@ -103,10 +104,10 @@ use_rerank = True  # cross-encoder/ms-marco-MiniLM-L-6-v2
 ## Tóm tắt học được
 
 1. **Lỗi phổ biến nhất trong pipeline này là gì?**
-   > **Corpus gap** (thiếu tài liệu): q09 và q10 fail hoàn toàn vì corpus không chứa thông tin được hỏi. Không có thuật toán retrieval nào cứu được nếu dữ liệu không tồn tại. Đây là bài học quan trọng: chất lượng RAG phụ thuộc 80% vào chất lượng corpus.
+   > **Generation không đủ completeness** khi context chỉ có một phần thông tin: 6/10 câu đạt Completeness ≤ 3/5 ở cả baseline lẫn variant (q01, q04, q06, q07, q08, q10). Nguyên nhân: LLM trả lời đúng nhưng thiếu chi tiết phụ (q01 thiếu "phản hồi 15 phút", q08 thiếu điều kiện "Team Lead phê duyệt"). Với q09 (ERR-403-AUTH): corpus thực sự **không có tài liệu** (`expected_sources: []`) — đây là câu được thiết kế để test khả năng abstain, RAG trả lời "không biết" là **đúng** (Faithfulness=5). Với q10 (VIP refund): tài liệu `policy/refund-v4.pdf` **có tồn tại** nhưng không đề cập quy trình VIP, RAG cũng phải abstain đúng cách.
 
 2. **Biến nào có tác động lớn nhất tới chất lượng?**
-   > **Retrieval strategy** (dense vs hybrid) có tác động lớn nhất — nhưng kết quả ngược kỳ vọng: Hybrid không cải thiện mà còn gây regression ở q07. Chứng tỏ với corpus nhỏ (~5 files), BM25 bổ sung noise nhiều hơn là tín hiệu hữu ích.
+   > **Retrieval strategy** (dense vs hybrid) có tác động lớn nhất nhưng kết quả ngược kỳ vọng. Q07 được thiết kế đặc biệt để test hybrid (note trong JSON: *"Đây là query alias/tên cũ — thử nghiệm hybrid retrieval"*), nhưng variant lại fail q07 nghiêm trọng (Completeness 3→1). Nguyên nhân thực: config variant chạy với **`use_rerank=False`** (bug, xem terminal.log dòng 77) — nên kết quả variant chỉ phản ánh Hybrid-only (không có rerank), chưa phản ánh đúng ý định thiết kế. Không thể kết luận "hybrid kém hơn dense" vì reranker chưa được bật thực sự.
 
 3. **Nếu có thêm 1 giờ, nhóm sẽ thử gì tiếp theo?**
-   > Thử **Query Expansion** (HyDE — Hypothetical Document Embeddings): Sinh câu trả lời giả định trước khi search để tăng semantic coverage. Cũng sẽ bổ sung tài liệu ERR-403-AUTH và VIP refund vào corpus để giải quyết corpus gap.
+   > Ưu tiên **sửa bug `use_rerank=False`** và chạy lại eval với reranker thực sự bật để có kết quả hybrid+rerank chính xác (đặc biệt với q07 — đây là câu được thiết kế để test hybrid alias). Sau đó thử **Query Expansion** cho q06 (escalation có nhiều bước) để cải thiện completeness.
