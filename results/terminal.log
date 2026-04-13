@@ -1,6 +1,4 @@
-========
-
- python eval.py (Variant: Hybrid Only)
+python eval.py
 ============================================================
 Sprint 4: Evaluation & Scorecard
 ============================================================
@@ -21,8 +19,17 @@ Config: {'retrieval_mode': 'dense', 'top_k_search': 10, 'top_k_select': 3, 'use_
 ======================================================================
 
 [q01] SLA xử lý ticket P1 là bao lâu?
-  Answer: SLA xử lý (resolution) cho ticket P1 là **4 giờ**. [1]...
-  Faithful: 5 | Relevant: 4 | Recall: 5 | Complete: 3
+C:\Users\msilaptop\Desktop\VinUni\lab8\lab\eval.py:67: FutureWarning: 
+
+All support for the `google.generativeai` package has ended. It will no longer be receiving
+updates or bug fixes. Please switch to the `google.genai` package as soon as possible.
+See README for more details:
+
+https://github.com/google-gemini/deprecated-generative-ai-python/blob/main/README.md
+
+  import google.generativeai as genai
+  Answer: SLA xử lý (resolution) cho ticket P1 là **4 giờ**. [1]...
+  Faithful: 5 | Relevant: 5 | Recall: 5 | Complete: 3
 
 [q02] Khách hàng có thể yêu cầu hoàn tiền trong bao nhiêu ngày?
   Answer: Khách hàng có thể yêu cầu hoàn tiền trong vòng **7 ngày làm việc** kể từ thời điểm xác nhận đơn hàng...
@@ -30,43 +37,45 @@ Config: {'retrieval_mode': 'dense', 'top_k_search': 10, 'top_k_select': 3, 'use_
 
 [q03] Ai phải phê duyệt để cấp quyền Level 3?
   Answer: Để cấp quyền Level 3 (Elevated Access), cần có sự phê duyệt của **Line Manager, IT Admin và IT Secur...
-  Faithful: 5 | Relevant: 4 | Recall: 5 | Complete: 5
+  Faithful: 5 | Relevant: 5 | Recall: 5 | Complete: 5
 
 [q04] Sản phẩm kỹ thuật số có được hoàn tiền không?
   Answer: Sản phẩm kỹ thuật số không được hoàn tiền, vì chúng nằm trong danh mục ngoại lệ không được hoàn tiền...
-  Faithful: 5 | Relevant: 5 | Recall: 5 | Complete: 3
+  Faithful: 5 | Relevant: 5 | Recall: 5 | Complete: 5
 
 [q05] Tài khoản bị khóa sau bao nhiêu lần đăng nhập sai?
-  Answer: Tài khoản sẽ bị khóa sau 5 lần đăng nhập sai liên tiếp. [1]...
+  Answer: Tài khoản sẽ bị khóa sau **5 lần đăng nhập sai liên tiếp**. [1]...
   Faithful: 5 | Relevant: 5 | Recall: 5 | Complete: 5
 
 [q06] Escalation trong sự cố P1 diễn ra như thế nào?
-  Answer: Trong một ticket P1, nếu không có phản hồi nào trong vòng **10 phút** kể từ khi ticket được tạo, hệ ...
-  Faithful: 5 | Relevant: 3 | Recall: 5 | Complete: 5
+  Answer: Trong một sự cố P1, quy trình **escalation** được thực hiện như sau:
+
+- Khi ticket P1 được tạo, nếu ...
+  Faithful: 5 | Relevant: 5 | Recall: 5 | Complete: 5
 
 [q07] Approval Matrix để cấp quyền hệ thống là tài liệu nào?
-  Answer: Approval Matrix để cấp quyền hệ thống được mô tả trong tài liệu **it/access-control-sop.md**, mục **...
-  Faithful: 3 | Relevant: 5 | Recall: 5 | Complete: 3
+  Answer: Approval Matrix để cấp quyền hệ thống được quy định trong tài liệu **Access Control SOP** (it/access...
+  Faithful: 1 | Relevant: 5 | Recall: 5 | Complete: 5
 
 [q08] Nhân viên được làm remote tối đa mấy ngày mỗi tuần?
-  Answer: Nhân viên được làm remote tối đa **2 ngày mỗi tuần**. [1]...
+  Answer: Nhân viên được phép làm remote tối đa **2 ngày mỗi tuần**. [1]...
   Faithful: 5 | Relevant: 5 | Recall: 5 | Complete: 3
 
 [q09] ERR-403-AUTH là lỗi gì và cách xử lý?
   Answer: Tôi không tìm thấy đủ thông tin trong tài liệu để trả lời câu hỏi này....
-  Faithful: 5 | Relevant: 1 | Recall: None | Complete: 2
+  Faithful: 5 | Relevant: 5 | Recall: None | Complete: 5
 
 [q10] Nếu cần hoàn tiền khẩn cấp cho khách hàng VIP, quy trình có khác không?
   Answer: Tôi không tìm thấy đủ thông tin trong tài liệu để trả lời câu hỏi này....
-  Faithful: 5 | Relevant: 1 | Recall: 5 | Complete: 1
+  Faithful: 5 | Relevant: 5 | Recall: 5 | Complete: 2
 
-Average faithfulness: 4.80
+Average faithfulness: 4.60
 
-Average relevance: 3.80
+Average relevance: 5.00
 
 Average context_recall: 5.00
 
-Average completeness: 3.50
+Average completeness: 4.30
 
 Scorecard lưu tại: C:\Users\msilaptop\Desktop\VinUni\lab8\lab\results\scorecard_baseline.md
 
@@ -74,56 +83,65 @@ Scorecard lưu tại: C:\Users\msilaptop\Desktop\VinUni\lab8\lab\results\scoreca
 
 ======================================================================
 Chạy scorecard: variant_hybrid_rerank
-Config: {'retrieval_mode': 'hybrid', 'top_k_search': 15, 'top_k_select': 3, 'use_rerank': False, 'label': 'variant_hybrid_rerank'}
+Config: {'retrieval_mode': 'hybrid', 'top_k_search': 15, 'top_k_select': 3, 'use_rerank': True, 'label': 'variant_hybrid_rerank'}
 ======================================================================
 
 [q01] SLA xử lý ticket P1 là bao lâu?
-  Answer: SLA xử lý (resolution) cho ticket P1 là **4 giờ**. [1]...
-  Faithful: 5 | Relevant: 4 | Recall: 5 | Complete: 3
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights: 100%|█████████████████████████████████████████| 105/105 [00:00<00:00, 5808.98it/s]
+BertForSequenceClassification LOAD REPORT from: cross-encoder/ms-marco-MiniLM-L-6-v2
+Key                          | Status     |  |
+-----------------------------+------------+--+-
+bert.embeddings.position_ids | UNEXPECTED |  |
+
+Notes:
+- UNEXPECTED:   can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+  Answer: SLA cho ticket P1 yêu cầu thời gian xử lý và khắc phục (resolution) là **4 giờ** kể từ khi ticket đư...
+  Faithful: 5 | Relevant: 5 | Recall: 5 | Complete: 3
 
 [q02] Khách hàng có thể yêu cầu hoàn tiền trong bao nhiêu ngày?
-  Answer: Khách hàng có thể yêu cầu hoàn tiền trong vòng **7 ngày làm việc** kể từ thời điểm xác nhận đơn hàng...
+  Answer: Khách hàng chỉ được phép gửi yêu cầu hoàn tiền trong vòng **7 ngày làm việc** kể từ thời điểm xác nh...
   Faithful: 5 | Relevant: 5 | Recall: 5 | Complete: 5
 
 [q03] Ai phải phê duyệt để cấp quyền Level 3?
-  Answer: Để cấp quyền Level 3 (Elevated Access), yêu cầu phải được phê duyệt bởi Line Manager, IT Admin và IT...
+  Answer: Để cấp quyền Level 3 (Elevated Access), yêu cầu phải được phê duyệt bởi **Line Manager**, **IT Admin...
   Faithful: 5 | Relevant: 5 | Recall: 5 | Complete: 5
 
 [q04] Sản phẩm kỹ thuật số có được hoàn tiền không?
   Answer: Sản phẩm kỹ thuật số không được hoàn tiền, vì chúng nằm trong danh mục ngoại lệ không được hoàn tiền...
-  Faithful: 5 | Relevant: 5 | Recall: 5 | Complete: 3
+  Faithful: 5 | Relevant: 5 | Recall: 5 | Complete: 5
 
 [q05] Tài khoản bị khóa sau bao nhiêu lần đăng nhập sai?
   Answer: Tài khoản sẽ bị khóa sau 5 lần đăng nhập sai liên tiếp. [1]...
   Faithful: 5 | Relevant: 5 | Recall: 5 | Complete: 5
 
 [q06] Escalation trong sự cố P1 diễn ra như thế nào?
-  Answer: Trong trường hợp sự cố P1, khi ticket được tạo, nếu không có phản hồi nào trong vòng **10 phút** thì...
-  Faithful: 4 | Relevant: 3 | Recall: 5 | Complete: 5
+  Answer: Trong một sự cố P1, nếu không có phản hồi nào trong vòng **10 phút** kể từ khi ticket được tạo, hệ t...
+  Faithful: 5 | Relevant: 5 | Recall: 5 | Complete: 5
 
 [q07] Approval Matrix để cấp quyền hệ thống là tài liệu nào?
   Answer: Tôi không tìm thấy đủ thông tin trong tài liệu để trả lời câu hỏi này....
-  Faithful: 5 | Relevant: 2 | Recall: 5 | Complete: 1
+  Faithful: 5 | Relevant: 5 | Recall: 5 | Complete: 1
 
 [q08] Nhân viên được làm remote tối đa mấy ngày mỗi tuần?
-  Answer: Nhân viên được làm remote tối đa **2 ngày mỗi tuần**. [1]...
+  Answer: Nhân viên được phép làm remote tối đa **2 ngày mỗi tuần**. [1]...
   Faithful: 5 | Relevant: 5 | Recall: 5 | Complete: 3
 
 [q09] ERR-403-AUTH là lỗi gì và cách xử lý?
   Answer: Tôi không tìm thấy đủ thông tin trong tài liệu để trả lời câu hỏi này....
-  Faithful: 5 | Relevant: 1 | Recall: None | Complete: 2
+  Faithful: 5 | Relevant: 5 | Recall: None | Complete: 5
 
 [q10] Nếu cần hoàn tiền khẩn cấp cho khách hàng VIP, quy trình có khác không?
   Answer: Tôi không tìm thấy đủ thông tin trong tài liệu để trả lời câu hỏi này....
-  Faithful: 5 | Relevant: 1 | Recall: 5 | Complete: 1
+  Faithful: 5 | Relevant: 5 | Recall: 5 | Complete: 2
 
-Average faithfulness: 4.90
+Average faithfulness: 5.00
 
-Average relevance: 3.60
+Average relevance: 5.00
 
 Average context_recall: 5.00
 
-Average completeness: 3.30
+Average completeness: 3.90
 
 Scorecard variant lưu tại: C:\Users\msilaptop\Desktop\VinUni\lab8\lab\results\scorecard_variant.md  
 
@@ -132,23 +150,23 @@ A/B Comparison: Baseline vs Variant
 ======================================================================
 Metric                 Baseline    Variant    Delta
 -------------------------------------------------------
-faithfulness               4.80       4.90    +0.10
-relevance                  3.80       3.60    -0.20
+faithfulness               4.60       5.00    +0.40
+relevance                  5.00       5.00    +0.00
 context_recall             5.00       5.00    +0.00
-completeness               3.50       3.30    -0.20
+completeness               4.30       3.90    -0.40
 
 Câu    Baseline F/R/Rc/C      Variant F/R/Rc/C       Better?
 -----------------------------------------------------------------
-q01    5/4/5/3                5/4/5/3                Tie
+q01    5/5/5/3                5/5/5/3                Tie
 q02    5/5/5/5                5/5/5/5                Tie
-q03    5/4/5/5                5/5/5/5                Variant
-q04    5/5/5/3                5/5/5/3                Tie
+q03    5/5/5/5                5/5/5/5                Tie
+q04    5/5/5/5                5/5/5/5                Tie
 q05    5/5/5/5                5/5/5/5                Tie
-q06    5/3/5/5                4/3/5/5                Baseline
-q07    3/5/5/3                5/2/5/1                Baseline
+q06    5/5/5/5                5/5/5/5                Tie
+q07    1/5/5/5                5/5/5/1                Tie
 q08    5/5/5/3                5/5/5/3                Tie
-q09    5/1/None/2             5/1/None/2             Tie
-q10    5/1/5/1                5/1/5/1                Tie
+q09    5/5/None/5             5/5/None/5             Tie
+q10    5/5/5/2                5/5/5/2                Tie
 
 Kết quả đã lưu vào: C:\Users\msilaptop\Desktop\VinUni\lab8\lab\results\ab_comparison.csv
 
@@ -161,40 +179,3 @@ Việc cần làm Sprint 4:
   5. Gọi compare_ab() để thấy delta
   6. Cập nhật docs/tuning-log.md với kết quả và nhận xét
 (venv) PS C:\Users\msilaptop\Desktop\VinUni\lab8\lab> 
-
-
-==== 
-Variant: Hybrid Retrieval + Reranking
-=====================================================================
-A/B Comparison: Baseline vs Variant
-======================================================================
-Metric                 Baseline    Variant    Delta
--------------------------------------------------------
-faithfulness               4.70       4.90    +0.20
-relevance                  3.80       3.60    -0.20
-context_recall             5.00       5.00    +0.00
-completeness               3.50       3.30    -0.20
-
-Câu    Baseline F/R/Rc/C      Variant F/R/Rc/C       Better?
------------------------------------------------------------------
-q01    4/3/5/3                4/4/5/3                Variant
-q02    5/5/5/5                5/5/5/5                Tie
-q03    5/4/5/5                5/5/5/5                Variant
-q04    5/5/5/3                5/5/5/3                Tie
-q05    5/5/5/5                5/5/5/5                Tie
-q06    5/4/5/5                5/3/5/5                Baseline
-q07    3/5/5/3                5/2/5/1                Baseline
-q08    5/5/5/3                5/5/5/3                Tie
-q09    5/1/None/2             5/1/None/2             Tie
-q10    5/1/5/1                5/1/5/1                Tie
-
-Kết quả đã lưu vào: C:\Users\msilaptop\Desktop\VinUni\lab8\lab\results\ab_comparison.csv
-
-
-Việc cần làm Sprint 4:
-  1. Hoàn thành Sprint 2 + 3 trước
-  2. Chấm điểm thủ công hoặc implement LLM-as-Judge trong score_* functions
-  3. Chạy run_scorecard(BASELINE_CONFIG)
-  4. Chạy run_scorecard(VARIANT_CONFIG)
-  5. Gọi compare_ab() để thấy delta
-  6. Cập nhật docs/tuning-log.md với kết quả và nhận xét
