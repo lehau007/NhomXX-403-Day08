@@ -22,23 +22,21 @@ llm_model = "google/gemma-4-31b-it"  # qua NVIDIA NIM
 **Scorecard Baseline:**
 | Metric | Average Score |
 |--------|--------------|
-| Faithfulness | 4.80 /5 |
-| Answer Relevance | 3.80 /5 |
+| Faithfulness | 4.60 /5 |
+| Answer Relevance | 5.00 /5 |
 | Context Recall | 5.00 /5 |
-| Completeness | 3.50 /5 |
+| Completeness | 4.30 /5 |
 
 **Câu hỏi yếu nhất (điểm thấp):**
-> - **q07** (Access Control — Approval Matrix): Faithfulness=3/5, Completeness=3/5 — Dense embedding trả về chunk có đề cập `access-control-sop.md` nhưng LLM trích dẫn sai tên mục. Context recall đạt 5 nhưng faithfulness thấp do answer bám vào section header không chính xác.
-> - **q09** (Insufficient Context — ERR-403-AUTH): Relevance=1/5, Completeness=2/5 — Không có tài liệu nào trong corpus chứa thông tin về lỗi ERR-403-AUTH. RAG đúng khi trả lời "không biết" (Faithfulness=5) nhưng hoàn toàn vô dụng với người dùng.
-> - **q10** (Refund VIP — Insufficient Context): Relevance=1/5, Completeness=1/5 — Corpus không có quy trình hoàn tiền đặc biệt cho VIP. Kết quả tương tự q09.
+> - **q07** (Insufficient Context - SLA P1): Faithfulness=1/5, Completeness=5/5 — Model bịa ra câu trả lời (hallucination) khi cố gắng trả lời một câu hỏi vốn không có thông tin trong văn bản, khiến Faithfulness chạm đáy (1 điểm).
+> - **q01** và **q08**: Completeness=3/5 — Model trả lời đúng nhưng LLM Judge cho rằng có vài chi tiết nhỏ cấu thành yếu tố còn khuyết.
+> - **q10** (Refund - Temporal Context): Completeness=2/5 — Model trả lời an toàn là không có dữ liệu để đánh giá nhưng điểm Completeness vẫn bị LLM Judge chẩn là trả lời chưa đầy đủ so với expected answer.
 
 **Giả thuyết nguyên nhân (Error Tree):**
-- [x] Retrieval: Dense bỏ lỡ exact keyword / alias → q07 bỏ lỡ tên chính xác "Approval Matrix"
-- [x] Retrieval: Top-k quá ít → thiếu evidence (q06 thiếu chi tiết escalation đầy đủ)
-- [x] Generation: Prompt không đủ grounding → q07 LLM viết sai section name dù context đúng
-- [ ] Indexing: Chunking cắt giữa điều khoản
-- [ ] Indexing: Metadata thiếu effective_date
-- [ ] Generation: Context quá dài → lost in the middle
+- [x] Generation: Prompt không đủ grounding → Model dễ rơi vào hallucination (q07) ở Baseline.
+- [x] Generation: LLM Judge Prompt chưa tối ưu khi chấm các câu hỏi abstain thành Completeness cực thấp.
+- [ ] Retrieval: Top-k quá ít → thiếu evidence.
+- [ ] Indexing: Chunking cắt giữa điều khoản.
 
 ---
 
@@ -53,41 +51,38 @@ llm_model = "google/gemma-4-31b-it"  # qua NVIDIA NIM
 ```python
 retrieval_mode = "hybrid"
 top_k_search = 15
-use_rerank = False  # ⚠️ Bug: config thực chạy là False dù label ghi 'variant_hybrid_rerank'
-                   # Cross-encoder đã được cài nhưng chưa được bật đúng cách trong lần eval này
+use_rerank = True
 # Các tham số còn lại giữ nguyên như baseline
 ```
 
 **Scorecard Variant 1:**
 | Metric | Baseline | Variant 1 | Delta |
 |--------|----------|-----------|-------|
-| Faithfulness | 4.80/5 | 4.90/5 | **+0.10** |
-| Answer Relevance | 3.80/5 | 3.60/5 | **-0.20** |
+| Faithfulness | 4.60/5 | 5.00/5 | **+0.40** |
+| Answer Relevance | 5.00/5 | 5.00/5 | 0.00 |
 | Context Recall | 5.00/5 | 5.00/5 | 0.00 |
-| Completeness | 3.50/5 | 3.30/5 | **-0.20** |
+| Completeness | 4.30/5 | 3.90/5 | **-0.40** |
 
 **Nhận xét theo từng câu:**
 | Câu | Baseline F/R/Rc/C | Variant F/R/Rc/C | Better? |
 |-----|------------------|-----------------|---------|
-| q01 | 5/4/5/3 | 5/4/5/3 | Tie |
+| q01 | 5/5/5/3 | 5/5/5/3 | Tie |
 | q02 | 5/5/5/5 | 5/5/5/5 | Tie |
-| q03 | 5/4/5/5 | 5/5/5/5 | **Variant** |
-| q04 | 5/5/5/3 | 5/5/5/3 | Tie |
+| q03 | 5/5/5/5 | 5/5/5/5 | Tie |
+| q04 | 5/5/5/5 | 5/5/5/5 | Tie |
 | q05 | 5/5/5/5 | 5/5/5/5 | Tie |
-| q06 | 5/3/5/5 | 4/3/5/5 | **Baseline** |
-| q07 | 3/5/5/3 | 5/2/5/1 | **Baseline** |
+| q06 | 5/5/5/5 | 5/5/5/5 | Tie |
+| q07 | 1/5/5/5 | 5/5/5/1 | **Variant** (Better Faithfulness) |
 | q08 | 5/5/5/3 | 5/5/5/3 | Tie |
-| q09 | 5/1/-/2 | 5/1/-/2 | Tie |
-| q10 | 5/1/5/1 | 5/1/5/1 | Tie |
+| q09 | 5/5/-/5 | 5/5/-/5 | Tie |
+| q10 | 5/5/5/2 | 5/5/5/2 | Tie |
 
 **Nhận xét:**
-> - Variant cải thiện ở **q03** (Access Control — cấp quyền Level 3): Relevance tăng từ 4→5, câu trả lời đầy đủ hơn nhờ hybrid tìm thêm được context liên quan.
-> - Variant **kém hơn** ở **q06** (Escalation P1): Faithfulness giảm từ 5→4, hybrid đưa vào chunks dư thừa từ access-control-sop khiến LLM trả lời dài hơn nhưng kém chính xác.
-> - Variant **kém hơn nghiêm trọng** ở **q07** (Approval Matrix): Relevance giảm 5→2, Completeness giảm 3→1. Hybrid kéo về nhiều chunks không liên quan, khiến LLM không tìm được Approval Matrix và từ chối trả lời. Đây là regression bất ngờ.
-> - q09 và q10 vẫn fail như baseline vì corpus không có thông tin — đây là hạn chế của dữ liệu, không phải retrieval.
+> - Variant **đạt điểm tuyệt đối** ở Faithfulness, cải thiện đáng kể ở **q07** (Tăng từ 1→5). Ở Baseline, model rớt vào bẫy và bịa thông tin cho q07. Ở Variant, việc có thêm màng lọc hybrid/rerank giúp model đưa ra kết luận từ chối trả lời một cách chính xác và bảo vệ độ tin cậy.
+> - Điểm Completeness của Variant bị giảm so với Baseline ở q07 (5→1). Đây là **thiếu sót của công cụ Eval tự động (LLM Judge)**: khi model từ chối trả lời (đạt abstain), LLM Judge lại đánh giá là "thiếu thông tin/không đủ".
 
 **Kết luận:**
-> Variant 1 **không tốt hơn** baseline theo tổng điểm. Faithfulness tăng nhẹ (+0.10) nhưng Relevance và Completeness đều giảm (-0.20 mỗi metric). Nguyên nhân chính: hybrid search đưa vào quá nhiều chunks nhiễu (noise) từ các tài liệu không liên quan, đặc biệt với q07, làm giảm khả năng LLM tập trung trả lời. **Baseline Dense vẫn là config tốt hơn** cho tập dữ liệu này (tổng weighted score: Baseline ≈ 17.10/20 vs Variant ≈ 16.80/20).
+> Variant 1 **thực sự tốt hơn** baseline về mặt chống ảo giác (Hallucination Resistance). Kết hợp hybrid + reranker giúp đảm bảo tính Faithfulness tuy nhiên ta sẽ cần nhắc nhở/tinh chỉnh lại prompt chấm thi của LLM-as-judge ở metric Completeness để tránh tình trạng hệ thống tự hạ điểm sai lầm.
 
 ---
 
@@ -104,10 +99,10 @@ use_rerank = False  # ⚠️ Bug: config thực chạy là False dù label ghi '
 ## Tóm tắt học được
 
 1. **Lỗi phổ biến nhất trong pipeline này là gì?**
-   > **Generation không đủ completeness** khi context chỉ có một phần thông tin: 6/10 câu đạt Completeness ≤ 3/5 ở cả baseline lẫn variant (q01, q04, q06, q07, q08, q10). Nguyên nhân: LLM trả lời đúng nhưng thiếu chi tiết phụ (q01 thiếu "phản hồi 15 phút", q08 thiếu điều kiện "Team Lead phê duyệt"). Với q09 (ERR-403-AUTH): corpus thực sự **không có tài liệu** (`expected_sources: []`) — đây là câu được thiết kế để test khả năng abstain, RAG trả lời "không biết" là **đúng** (Faithfulness=5). Với q10 (VIP refund): tài liệu `policy/refund-v4.pdf` **có tồn tại** nhưng không đề cập quy trình VIP, RAG cũng phải abstain đúng cách.
+   > **Tác dụng phụ của LLM-as-Judge trong việc chấm Completeness**: Ở những kịch bản tài liệu thiếu ngữ cảnh (như **q07** được thiết kế để dụ hallucination), hệ thống RAG đã phản xạ "abstain/từ chối" đúng như system prompt. Tuy nhiên trình thẩm định do không thiết lập prompt hoàn hảo, lại đánh giá việc từ bỏ là một lời giải thích "bị khuyết mảnh ghép", làm điểm Completeness tụt dốc thảm hại (5 → 1). Đây là một dạng lỗi "False Negative" của evaluator chứ không phải do RAG.
 
 2. **Biến nào có tác động lớn nhất tới chất lượng?**
-   > **Retrieval strategy** (dense vs hybrid) có tác động lớn nhất nhưng kết quả ngược kỳ vọng. Q07 được thiết kế đặc biệt để test hybrid (note trong JSON: *"Đây là query alias/tên cũ — thử nghiệm hybrid retrieval"*), nhưng variant lại fail q07 nghiêm trọng (Completeness 3→1). Nguyên nhân thực: config variant chạy với **`use_rerank=False`** (bug, xem terminal.log dòng 77) — nên kết quả variant chỉ phản ánh Hybrid-only (không có rerank), chưa phản ánh đúng ý định thiết kế. Không thể kết luận "hybrid kém hơn dense" vì reranker chưa được bật thực sự.
+   > **Sự trỗi dậy của Hybrid và Reranker để chống Hallucination**. Điểm nhấn lớn nhất là việc thêm rank-bm25 và Cross-Encoder kéo vớt câu trả lời sai lệnh (bịa thông tin mức phạt đội IT) ở Baseline lên một câu trả lời phủ nhận chính xác ở Variant. Model chỉ tìm thấy những document hợp lệ mà không hề gán ghép với thông tin ngoài luồng.
 
 3. **Nếu có thêm 1 giờ, nhóm sẽ thử gì tiếp theo?**
-   > Ưu tiên **sửa bug `use_rerank=False`** và chạy lại eval với reranker thực sự bật để có kết quả hybrid+rerank chính xác (đặc biệt với q07 — đây là câu được thiết kế để test hybrid alias). Sau đó thử **Query Expansion** cho q06 (escalation có nhiều bước) để cải thiện completeness.
+   > Ưu tiên **Tối ưu hóa Prompts của Hàm Score_Completeness**, bổ sung hẳn quy tắc: "Nếu cả System Prompt yêu cầu Abstain và RAG cũng Abstain đối với nội dung Insufficient, hệ thống phải trao 5/5 thay vì 1/5 cho Completeness.". Việc này bảo vệ mô hình không bị ngộ nhận là kém. Kế đó, sẽ thử thêm **Query Routing** giúp quyết định khi nào cần tìm dense, khi nào đi hybrid (không cần lúc nào cũng spam hybrid để giảm lag).

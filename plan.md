@@ -36,9 +36,9 @@
 
 | Vai trò | Trách nhiệm chính | Thành viên phụ trách |
 | :--- | :--- | :--- |
-| **Tech Lead & Integration** | Thiết lập môi trường, nối pipeline, xử lý LLM API, chạy kết quả cuối cùng (`eval.py`, `rag_answer.py`). | [Tên Thành viên 1] |
-| **Retrieval & Tuning Owner** | Xử lý dữ liệu (Chunking, Metadata), cài đặt phương pháp tìm kiếm (Dense, Hybrid/Rerank) (`index.py`, `rag_answer.py`). | [Tên Thành viên 2] |
-| **Eval & Documentation Owner** | Quản lý câu hỏi test, chạy Scorecard, viết tài liệu kiến trúc và nhật ký tối ưu (`architecture.md`, `tuning-log.md`). | [Tên Thành viên 3] |
+| **Tech Lead & Integration** | Thiết lập môi trường, nối pipeline, xử lý LLM API, chạy kết quả cuối cùng (`eval.py`, `rag_answer.py`). | Hậu |
+| **Retrieval & Tuning Owner** | Xử lý dữ liệu (Chunking, Metadata), cài đặt phương pháp tìm kiếm (Dense, Hybrid/Rerank) (`index.py`, `rag_answer.py`). | Tú |
+| **Eval & Documentation Owner** | Quản lý câu hỏi test, chạy Scorecard, viết tài liệu kiến trúc và nhật ký tối ưu (`architecture.md`, `tuning-log.md`). | Hào |
 
 ---
 
