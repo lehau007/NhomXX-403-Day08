@@ -188,14 +188,31 @@ def get_embedding(text: str) -> List[float]:
 
     if provider == "colab":
         import requests
+
+        def _extract_colab_embedding(payload: Any) -> List[float]:
+            # Hỗ trợ cả 2 dạng response phổ biến: dict{"embedding": [...]} và list[...].
+            if isinstance(payload, dict):
+                if "embedding" in payload:
+                    return payload["embedding"]
+                if "embeddings" in payload and payload["embeddings"]:
+                    return payload["embeddings"][0]
+                raise ValueError(f"Unsupported Colab response keys: {list(payload.keys())}")
+
+            if isinstance(payload, list):
+                if payload and isinstance(payload[0], (int, float)):
+                    return payload
+                if payload and isinstance(payload[0], list):
+                    return payload[0]
+
+            raise ValueError(f"Unsupported Colab response type: {type(payload).__name__}")
+
         endpoint = os.getenv("EMBEDDING_ENDPOINT")
         if not endpoint:
             raise ValueError("EMBEDDING_ENDPOINT không được định nghĩa trong .env khi dùng provider 'colab'")
         try:
             response = requests.post(endpoint, json={"text": text}, timeout=30)
             response.raise_for_status()
-            # Giả định response format của Colab là {"embedding": [...]}
-            return response.json()["embedding"]
+            return _extract_colab_embedding(response.json())
         except Exception as e:
             print(f"Lỗi khi gọi Colab API: {e}. Đang dùng local fallback...")
             provider = "local"
@@ -210,7 +227,14 @@ def get_embedding(text: str) -> List[float]:
         return response.data[0].embedding
 
     elif provider == "local":
-        from sentence_transformers import SentenceTransformer
+        try:
+            from sentence_transformers import SentenceTransformer
+        except ImportError as e:
+            raise ImportError(
+                "Thiếu package sentence-transformers cho local fallback. "
+                "Cài bằng: pip install sentence-transformers"
+            ) from e
+
         model_name = os.getenv("LOCAL_EMBEDDING_MODEL", "paraphrase-multilingual-MiniLM-L12-v2")
         model = SentenceTransformer(model_name)
         return model.encode(text).tolist()
@@ -259,12 +283,34 @@ def build_index(docs_dir: Path = DOCS_DIR, db_dir: Path = CHROMA_DB_DIR) -> None
             metadatas.append(chunk["metadata"])
 
         if ids:
-            collection.upsert(
-                ids=ids,
-                embeddings=embeddings,
-                documents=documents,
-                metadatas=metadatas,
-            )
+            try:
+                collection.upsert(
+                    ids=ids,
+                    embeddings=embeddings,
+                    documents=documents,
+                    metadatas=metadatas,
+                )
+            except Exception as e:
+                error_text = str(e).lower()
+                if "dimension" in error_text:
+                    print(
+                        "Phát hiện lệch embedding dimension với collection hiện tại. "
+                        f"Đang recreate collection '{COLLECTION_NAME}' và thử lại..."
+                    )
+                    client.delete_collection(COLLECTION_NAME)
+                    collection = client.get_or_create_collection(
+                        name=COLLECTION_NAME,
+                        metadata={"hnsw:space": "cosine"},
+                    )
+                    collection.upsert(
+                        ids=ids,
+                        embeddings=embeddings,
+                        documents=documents,
+                        metadatas=metadatas,
+                    )
+                else:
+                    raise
+
             total_chunks += len(ids)
 
     print(f"\nHoàn thành! Tổng số chunks đã index: {total_chunks}")
@@ -356,9 +402,9 @@ if __name__ == "__main__":
             print(f"  Text: {chunk['text'][:150]}...")
 
     print("\n--- Build Full Index ---")
-    # build_index()
+    build_index()
 
-    # list_chunks()
-    # inspect_metadata_coverage()
+    list_chunks()
+    inspect_metadata_coverage()
 
     print("\nSprint 1 setup hoàn thành!")
