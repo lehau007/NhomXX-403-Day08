@@ -109,8 +109,8 @@ def retrieve_sparse(query: str, top_k: int = TOP_K_SEARCH) -> List[Dict[str, Any
 
     return [
         {
-            "text": all_chunks["documents"][i],
-            "metadata": all_chunks["metadatas"][i],
+            "text": documents[i],
+            "metadata": metadatas[i] if i < len(metadatas) else {},
             "score": scores[i],
         }
         for i in top_indices
@@ -254,12 +254,13 @@ def build_grounded_prompt(query: str, context_block: str) -> str:
 
 def call_llm(prompt: str) -> str:
     """
-    Gọi LLM để sinh câu trả lời. Hỗ trợ openai, gemini, nvidia.
+    Gọi LLM để sinh câu trả lời. Hỗ trợ openai, gemini, nvidia, groq.
     """
     provider = os.getenv("LLM_PROVIDER", "openai").lower()
     model_name = os.getenv("LLM_MODEL", "gpt-4o-mini")
 
     if provider == "nvidia":
+        import time
         import requests
 
         api_key = os.getenv("NVIDIA_API_KEY")
@@ -275,24 +276,52 @@ def call_llm(prompt: str) -> str:
         }
         payload = {
             "model": model_name,
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": [
+                {"role": "system", "content": SYSTEM_GROUNDED_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
             "temperature": 0,
-            "max_tokens": 1024,
+            "max_tokens": 768,
             "top_p": 1.0,
             "stream": False,
         }
 
-        response = requests.post(invoke_url, headers=headers, json=payload, timeout=120)
-        try:
-            response.raise_for_status()
-        except requests.HTTPError as e:
-            raise RuntimeError(f"NVIDIA NIM API lỗi {response.status_code}: {response.text}") from e
+        max_retries = int(os.getenv("NVIDIA_MAX_RETRIES", "2"))
+        connect_timeout = float(os.getenv("NVIDIA_CONNECT_TIMEOUT", "20"))
+        read_timeout = float(os.getenv("NVIDIA_READ_TIMEOUT", "180"))
 
-        data = response.json()
-        choices = data.get("choices", [])
-        if not choices:
-            raise RuntimeError(f"NVIDIA NIM trả response không hợp lệ: {data}")
-        return choices[0]["message"]["content"]
+        last_error: Exception | None = None
+        for attempt in range(max_retries + 1):
+            try:
+                response = requests.post(
+                    invoke_url,
+                    headers=headers,
+                    json=payload,
+                    timeout=(connect_timeout, read_timeout),
+                )
+                try:
+                    response.raise_for_status()
+                except requests.HTTPError as e:
+                    status = response.status_code
+                    if status in (429, 500, 502, 503, 504) and attempt < max_retries:
+                        time.sleep(1.5 * (attempt + 1))
+                        continue
+                    raise RuntimeError(f"NVIDIA NIM API lỗi {status}: {response.text}") from e
+
+                data = response.json()
+                choices = data.get("choices", [])
+                if not choices:
+                    raise RuntimeError(f"NVIDIA NIM trả response không hợp lệ: {data}")
+                return choices[0]["message"]["content"]
+
+            except (requests.ReadTimeout, requests.ConnectionError) as e:
+                last_error = e
+                if attempt < max_retries:
+                    time.sleep(1.5 * (attempt + 1))
+                    continue
+                break
+
+        raise RuntimeError(f"NVIDIA NIM timeout/kết nối lỗi sau {max_retries + 1} lần thử: {last_error}")
 
     elif provider == "openai":
         from openai import OpenAI
@@ -300,7 +329,33 @@ def call_llm(prompt: str) -> str:
         client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         response = client.chat.completions.create(
             model=model_name,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[
+                {"role": "system", "content": SYSTEM_GROUNDED_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0,
+            max_tokens=1024,
+        )
+        return response.choices[0].message.content
+
+    elif provider == "groq":
+        from openai import OpenAI
+
+        groq_api_key = os.getenv("GROQ_API_KEY")
+        groq_api_base = os.getenv("GROQ_API_BASE", "https://api.groq.com/openai/v1")
+        if not groq_api_key:
+            raise ValueError("GROQ_API_KEY chưa được cấu hình trong .env")
+
+        client = OpenAI(
+            api_key=groq_api_key,
+            base_url=groq_api_base.rstrip("/"),
+        )
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[
+                {"role": "system", "content": SYSTEM_GROUNDED_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
             temperature=0,
             max_tokens=1024,
         )
@@ -310,7 +365,10 @@ def call_llm(prompt: str) -> str:
         import google.generativeai as genai
 
         genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel(
+            "gemini-3.1-flash-lite-preview",
+            system_instruction=SYSTEM_GROUNDED_PROMPT,
+        )
         response = model.generate_content(prompt)
         return response.text
 
@@ -409,9 +467,11 @@ def compare_retrieval_strategies(query: str) -> None:
 if __name__ == "__main__":
     # Test queries
     test_queries = [
+        "Approval Matrix để cấp quyền hệ thống là tài liệu nào?", 
         "SLA xử lý ticket P1 là bao lâu?",
         "Khách hàng có thể yêu cầu hoàn tiền trong bao nhiêu ngày?",
         "Ai phải phê duyệt để cấp quyền Level 3?",
+        "Approval Matrix để cấp quyền hệ thống là tài liệu nào?", 
     ]
 
     print("\n--- Sprint 2: Test Baseline (Dense) ---")
