@@ -152,8 +152,8 @@ def score_faithfulness(
     Trả về dict với: score (1-5) và notes (lý do)
     """
     # TODO Sprint 4: Implement scoring
-    if not chunks_used or answer in ["PIPELINE_NOT_IMPLEMENTED"] or answer.startswith("ERROR"):
-        return {"score": 1, "notes": "No valid answer/chunks"}
+    if answer in ["PIPELINE_NOT_IMPLEMENTED"] or answer.startswith("ERROR"):
+        return {"score": 1, "notes": "No valid answer/error"}
 
     chunks_text = "\n".join([c.get("text", "") for c in chunks_used])
     prompt = f"""Given these retrieved chunks:
@@ -163,7 +163,7 @@ And this answer:
 {answer}
 
 Rate the faithfulness on a scale of 1-5.
-5 = completely grounded in the provided context.
+5 = completely grounded in the provided context. IMPORTANT: If the answer states that it cannot answer due to lack of information, give it a 5 since it is truthful and not hallucinating.
 1 = answer contains information not in the context.
 Output only valid JSON: {{"score": <int>, "reason": "<string>"}}"""
 
@@ -217,7 +217,7 @@ And this answer:
 {answer}
 
 Rate the answer relevance on a scale of 1-5.
-5 = answer directly and fully answers the query.
+5 = answer directly and fully answers the query. IMPORTANT: If the answer correctly states that the information is not available to answer the query, give it a 5 because it appropriately addresses the query's unanswerability.
 1 = answer does not answer the query or is off-topic.
 Output only valid JSON: {{"score": <int>, "reason": "<string>"}}"""
 
@@ -335,7 +335,7 @@ Model answer: {answer}
 Expected answer: {expected_answer}
 
 Rate completeness from 1-5. Are all key points covered?
-5 = Covered all key points
+5 = Covered all key points. IMPORTANT: If both the model answer and expected answer state that the information is not available, give it a 5.
 1 = Missing major key points
 Output only valid JSON: {{"score": <int>, "reason": "<string>"}}"""
 
