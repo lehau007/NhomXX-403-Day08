@@ -51,8 +51,7 @@ llm_model = "google/gemma-4-31b-it"  # qua NVIDIA NIM
 ```python
 retrieval_mode = "hybrid"
 top_k_search = 15
-use_rerank = False  # ⚠️ Bug: config thực chạy là False dù label ghi 'variant_hybrid_rerank'
-                   # Cross-encoder đã được cài nhưng chưa được bật đúng cách trong lần eval này
+use_rerank = True
 # Các tham số còn lại giữ nguyên như baseline
 ```
 
